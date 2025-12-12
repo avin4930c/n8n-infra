@@ -1,0 +1,28 @@
+# Node, Python, etc.
+node_modules/
+.env
+/*.pem
+*.key
+*.crt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker / local files
+docker-compose.override.yml
+*.bak
+*.tgz
+/backups/
+/tmp/
+*.log
+
+# Let's Encrypt or local certs
+/etc/letsencrypt/
+certs/
+cloudflare/
+
+# IDE/editor
+.vscode/
+.idea/
+*.sublime-workspace

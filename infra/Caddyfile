@@ -1,0 +1,21 @@
+{
+    # Global options
+    # email placeholder for ACME registration (replace when deploying)
+    email youremail@example.com
+}
+
+# Replace with your domain when deploying
+n8n-avin.example.com {
+    # If you mount certs (e.g. /etc/letsencrypt), you can use:
+    # tls /etc/letsencrypt/live/n8n-avin.example.com/fullchain.pem /etc/letsencrypt/live/n8n-avin.example.com/privkey.pem
+
+    reverse_proxy n8n:5678
+    encode zstd gzip
+
+    # Optional: basic security headers (uncomment if desired)
+    # header {
+    #   Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    #   X-Content-Type-Options "nosniff"
+    #   X-Frame-Options "DENY"
+    # }
+}
