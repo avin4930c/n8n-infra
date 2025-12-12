@@ -2,13 +2,13 @@
 
 Single-VM production setup for n8n on EC2 using Docker Compose: n8n app, Postgres 15, and Caddy 2 as reverse proxy/TLS.
 
-**Do not commit secrets.** Copy [infra/sample.env](infra/sample.env) to the server as `.env` and populate real values there (or via CI/CD secrets/SSM).
+**Do not commit secrets.** Copy [infra/sample.env](sample.env) to the server as `.env` and populate real values there (or via CI/CD secrets/SSM).
 
 ## Contents
-- [infra/docker-compose.yml](infra/docker-compose.yml) — services and volumes (no secrets)
-- [infra/Caddyfile](infra/Caddyfile) — reverse proxy config (no keys)
-- [infra/sample.env](infra/sample.env) — env template to edit on server
-- [infra/backup.sh](infra/backup.sh) — dumps Postgres and the n8n data volume
+- [infra/docker-compose.yml](docker-compose.yml) — services and volumes (no secrets)
+- [infra/Caddyfile](Caddyfile) — reverse proxy config (no keys)
+- [infra/sample.env](sample.env) — env template to edit on server
+- [infra/backup.sh](backup.sh) — dumps Postgres and the n8n data volume
 
 ## Prereqs (server)
 - Docker Engine + Docker Compose v2
