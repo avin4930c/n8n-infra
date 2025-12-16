@@ -1,0 +1,378 @@
+{
+  "name": "Motorcycle Dataset Collection",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "authentication": "n8nUserAuth",
+        "initialMessages": "Hi there! 👋\nEnter your interview transcript here",
+        "options": {
+          "showWelcomeScreen": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -624,
+        -128
+      ],
+      "id": "46338d34-749a-4ece-bf8b-2a5c3821c565",
+      "name": "When chat message received",
+      "webhookId": "YOUR_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1kY0ftmarZXeEWC_1hvUd3M7gH3UhM3HAg25oUjw0XQQ",
+          "mode": "list",
+          "cachedResultName": "Rider Behaviour & Attitude Insight Dataset",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kY0ftmarZXeEWC_1hvUd3M7gH3UhM3HAg25oUjw0XQQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kY0ftmarZXeEWC_1hvUd3M7gH3UhM3HAg25oUjw0XQQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1152,
+        -112
+      ],
+      "id": "54217388-ee37-4b47-9101-f4110a868da5",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  cleaned_text: $input.first().json.chatInput\n    .replace(/\\n+/g, \" \")\n    .replace(/\\s+/g, \" \")\n    .trim()\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        -32
+      ],
+      "id": "74cb6cbc-9ad7-4f5a-9836-548e7f1912ad",
+      "name": "Preprocess text"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $input.first().json.output;\nreturn output"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        -32
+      ],
+      "id": "3bc0bdfe-5687-4a64-a2b2-6115c662ec47",
+      "name": "Parse llm output"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Your Dataset Sheet",
+          "cachedResultUrl": "YOUR_SHEET_URL"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "YOUR_SHEET_URL"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -208,
+        -288
+      ],
+      "id": "e36f6960-afc5-46bd-a5e8-c7f0c7629271",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "keep": "lastItems"
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        128,
+        -288
+      ],
+      "id": "0fbbbfd9-6cd5-4d8f-9af6-7ca9237bb6bb",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "mode": "combineBySql",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        560,
+        -112
+      ],
+      "id": "a06df7fd-024b-4b44-b13b-669b6d0fe485",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const timestamp = new Date();\nconst dateStr = timestamp.toISOString().split('T')[0].replace(/-/g, '');\nconst timeStr = timestamp.getHours().toString().padStart(2, '0') + \n                timestamp.getMinutes().toString().padStart(2, '0');\n\nconst rowCount = $('Get row(s) in sheet').first().json.row_number || 1;\nconst seqId = (rowCount + 1).toString().padStart(4, '0');\n\nconst respondentId = `RBAI_${dateStr}_${timeStr}_${seqId}`;\n\nreturn [{\n  ...$input.first().json,\n  Respondent_ID: respondentId,\n  Timestamp: timestamp.toISOString()\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        -112
+      ],
+      "id": "e7764801-3f4c-4c58-beb8-59371a95744b",
+      "name": "Respondent_ID Generation"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst errors = [];\n\nif (data.Age === null || typeof data.Age !== 'number') errors.push(\"Age missing or invalid\");\nif (!data.Gender_Identity || data.Gender_Identity === \"Unknown\") errors.push(\"Gender missing\");\nif (!data.Location_City || data.Location_City === \"Unknown\") errors.push(\"Location missing\");\n\nconst filledFields = Object.values(data).filter(v => \n  v !== null && \n  v !== \"Unknown\" && \n  v !== \"Not asked\" && \n  v !== \"\"\n).length;\n\nif (filledFields < 28) {\n  errors.push(`Only ${filledFields}/52 fields filled. Interview incomplete.`);\n}\n\nif (errors.length > 0) {\n  throw new Error(`Validation failed: ${errors.join(\", \")}`);\n}\n\nreturn data;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        -112
+      ],
+      "id": "3ad1c84d-094a-493b-977b-dd265bbff782",
+      "name": "Validate Output"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=You are a data extraction assistant. Extract structured information from the interview transcript and return it in JSON format matching the schema.\n\nTranscript:\n{{ $json.cleaned_text }}\n\nReturn structured JSON with extracted fields. Use null for missing data."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        0,
+        -32
+      ],
+      "id": "d84fdb4e-eacd-4ced-ac76-ab3d312e950c",
+      "name": "Basic LLM Chain",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        0,
+        224
+      ],
+      "id": "18da163f-a925-46a2-a1b4-3abc2942dbac",
+      "name": "Groq Chat Model1",
+      "credentials": {
+        "groqApi": {
+          "id": "YOUR_GROQ_CREDENTIAL_ID",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"Respondent_ID\": { \"type\": [\"string\", \"null\"] },\n    \"Timestamp\": { \"type\": \"string\", \"format\": \"date-time\" },\n    \"Interviewer_Name\": { \"type\": \"string\" },\n    \n    \"Location_City\": { \"type\": [\"string\", \"null\"] },\n    \"Location_State\": { \"type\": [\"string\", \"null\"] },\n    \"Age\": { \"type\": [\"integer\", \"null\"] },\n    \"Gender_Identity\": { \"type\": [\"string\", \"null\"] },\n    \"Occupation_or_Status\": { \"type\": [\"string\", \"null\"] },\n    \"Consent_Status\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Yes\", \"No\", null] },\n    \n    \"Personal_Interest_Primary\": { \"type\": [\"string\", \"null\"] },\n    \"Personal_Interest_Secondary\": { \"type\": [\"string\", \"null\"] },\n    \"Uses_AI_Tools\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Yes\", \"No\", \"Rarely\", null] },\n    \"Uses_OTT_Subscriptions\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Yes\", \"No\", null] },\n    \"Spending_Willingness_1_5\": { \"type\": [\"integer\", \"null\"], \"minimum\": 1, \"maximum\": 5 },\n    \n    \"Vehicle_Type\": { \"type\": [\"string\", \"null\"] },\n    \"Owns_Vehicle\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Yes\", \"No\", \"Shared\", null] },\n    \"Usage_Role\": { \"type\": [\"string\", \"null\"] },\n    \"Ride_Purpose_Category\": { \"type\": [\"string\", \"null\"] },\n    \"Riding_Km_Weekly\": { \"type\": [\"number\", \"null\"] },\n    \"Riding_Frequency\": { \"type\": [\"string\", \"null\"] },\n    \"Car_vs_Bike_Preference\": { \"type\": [\"string\", \"null\"] },\n    \"Future_Purchase_Intent\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Definitely\", \"If necessary\", \"Maybe\", \"No plans\", null] },\n    \n    \"Washes_Frequency\": { \"type\": [\"string\", \"null\"] },\n    \"Tracks_Fuel_Efficiency\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Yes\", \"No\", \"Sometimes\", \"When new\", null] },\n    \"Tracks_Expenses\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Yes\", \"No\", \"Sometimes\", null] },\n    \"Checks_Service_Details\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Yes\", \"No\", \"Sometimes\", null] },\n    \"Checks_Spare_Parts\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Yes\", \"No\", \"Sometimes\", null] },\n    \"Notices_Issues_Quickly\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Yes\", \"Eventually\", \"Rarely\", null] },\n    \"Takes_Service_Decisions_Self\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Yes\", \"No\", \"Shared\", \"Family decides\", null] },\n    \"Service_Frequency_Pattern\": { \"type\": [\"string\", \"null\"] },\n    \"Driving_Style\": { \"type\": [\"string\", \"null\"] },\n    \"Learns_About_Bike\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Yes\", \"Basic only\", \"No\", \"Would learn\", null] },\n    \"Family_Has_Bike_Culture\": { \"type\": [\"string\", \"null\"], \"enum\": [\"Yes\", \"No\", null] },\n    \"Purchase_Driver\": { \"type\": [\"string\", \"null\"] },\n    \"Trusts_Mechanic_1_5\": { \"type\": [\"integer\", \"null\"], \"minimum\": 1, \"maximum\": 5 },\n    \n    \"Bike_Relationship_1_5\": { \"type\": [\"integer\", \"null\"], \"minimum\": 1, \"maximum\": 5 },\n    \"Responsibility_Orientation_1_5\": { \"type\": [\"integer\", \"null\"], \"minimum\": 1, \"maximum\": 5 },\n    \"Maintenance_Care_Level_1_5\": { \"type\": [\"integer\", \"null\"], \"minimum\": 1, \"maximum\": 5 },\n    \"Cost_Consciousness_1_5\": { \"type\": [\"integer\", \"null\"], \"minimum\": 1, \"maximum\": 5 },\n    \"Social_Influence_1_5\": { \"type\": [\"integer\", \"null\"], \"minimum\": 1, \"maximum\": 5 },\n    \"Knowledge_Interest_1_5\": { \"type\": [\"integer\", \"null\"], \"minimum\": 1, \"maximum\": 5 },\n    \"Practical_vs_Emotional_1_5\": { \"type\": [\"integer\", \"null\"], \"minimum\": 1, \"maximum\": 5 },\n    \"Family_Influence_Level_1_5\": { \"type\": [\"integer\", \"null\"], \"minimum\": 1, \"maximum\": 5 },\n    \"Risk_Taking_Tendency_1_5\": { \"type\": [\"integer\", \"null\"], \"minimum\": 1, \"maximum\": 5 },\n    \"Views_on_Female_Riders\": { \"type\": [\"string\", \"null\"] },\n    \n    \"Free_Text_Behaviour_Notes\": { \"type\": [\"string\", \"null\"] },\n    \"Free_Text_Attitude_Notes\": { \"type\": [\"string\", \"null\"] },\n    \"Interviewer_Observations\": { \"type\": [\"string\", \"null\"] },\n    \n    \"AI_Generated_Summary\": { \"type\": [\"string\", \"null\"] },\n    \"AI_Inferred_Tags\": {\n      \"type\": \"array\",\n      \"items\": { \"type\": \"string\" },\n      \"minItems\": 0\n    },\n    \"Behavior_Score_Derived\": { \"type\": [\"integer\", \"null\"], \"minimum\": 0, \"maximum\": 35 },\n    \"Persona_Label\": { \"type\": [\"string\", \"null\"] }\n  },\n  \"required\": [\"Timestamp\", \"Interviewer_Name\", \"AI_Inferred_Tags\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        224
+      ],
+      "id": "8d1f5b23-eb0a-4781-be8e-cdd10195d788",
+      "name": "Structured Output Parser"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Preprocess text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preprocess text": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse llm output": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Respondent_ID Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respondent_ID Generation": {
+      "main": [
+        [
+          {
+            "node": "Validate Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Output": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Parse llm output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c5e47dfc-45ce-46e8-a2e2-cfe078ca622e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_INSTANCE_ID"
+  },
+  "id": "YOUR_WORKFLOW_ID",
+  "tags": []
+}
