@@ -1,0 +1,432 @@
+{
+  "name": "Mileage Recorder",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "authentication": "n8nUserAuth",
+        "initialMessages": "Please Enter your kilometers in odometer today\nIf you wish to enter a date which is not today Enter in this format: 1910, Oct 12",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -224,
+        96
+      ],
+      "id": "76e69a0e-1ade-4304-9d25-2245958a8bcf",
+      "name": "When chat message received",
+      "webhookId": "YOUR_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.chatInput || \"\";\nconst parts = input.split(\",\").map(p => p.trim());\nconst latestKm = parseFloat(parts[0]);\nlet datePart = parts[1] || \"\";\nlet currentDate = \"\";\n\nif (datePart) {\n  const year = new Date().getFullYear();\n  if (!/\\b\\d{4}\\b/.test(datePart)) {\n    datePart = `${datePart} ${year}`;\n  }\n  let parsedDate = new Date(datePart);\n  if (isNaN(parsedDate.getTime())) parsedDate = new Date();\n  currentDate = parsedDate.toISOString().split(\"T\")[0];\n} else {\n  currentDate = new Date().toISOString().split(\"T\")[0];\n}\n\nreturn [{ latestKm, currentDate }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        192
+      ],
+      "id": "039c2c64-9e4f-404e-b8ec-facc9ea1e9d0",
+      "name": "Parse Chat Input"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_GID",
+          "mode": "list",
+          "cachedResultName": "driven",
+          "cachedResultUrl": "YOUR_SHEET_URL"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        0,
+        0
+      ],
+      "id": "fc2b1c64-04bb-4d11-a2fd-121dc6dd339d",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row_number = $input.first().json.row_number;\nconst currentKm = $input.first().json.latestKm;\nconst currentDate = new Date($input.first().json.currentDate);\nconst previousKm = $input.first().json[\"km driven so far\"];\nconst lastDate = $input.first().json.col_1 || $input.first().json.Date;\nconst lastDiff = $input.first().json[\"km difference\"];\n\nfunction formatDate(isoDate) {\n  const d = new Date(isoDate);\n  return d.toLocaleDateString(\"en-US\", { month: \"short\", day: \"numeric\" });\n}\n\nfunction parseLastDate(dateStr) {\n  const parts = dateStr.split('-').map(s => s.trim());\n  const target = parts.length > 1 ? parts[1] : parts[0];\n  const monthMatch = dateStr.match(/[A-Za-z]+/);\n  const month = monthMatch ? monthMatch[0] : \"Oct\";\n  const normalized = target.match(/[A-Za-z]/) ? target : `${month} ${target}`;\n  const parsed = new Date(`${normalized} 2025`);\n  return isNaN(parsed.getTime()) ? null : parsed;\n}\n\nfunction addDays(date, days) {\n  const copy = new Date(date);\n  copy.setDate(copy.getDate() + days);\n  return copy;\n}\n\nfunction extractStartDate(dateStr) {\n  return dateStr.includes('-') ? dateStr.split('-')[0].trim() : dateStr;\n}\n\nfunction extractEndDate(dateStr) {\n  return dateStr.includes('-') ? dateStr.split('-')[1].trim() : dateStr;\n}\n\nlet lastRowIncludesCurrent = false;\nif (lastDate.includes('-')) {\n  const start = new Date(`${extractStartDate(lastDate)} 2025`);\n  const end = new Date(`${extractEndDate(lastDate)} 2025`);\n  lastRowIncludesCurrent = currentDate >= start && currentDate <= end;\n} else {\n  const lastSingle = new Date(`${lastDate} 2025`);\n  lastRowIncludesCurrent = currentDate.getTime() === lastSingle.getTime();\n}\n\nconst difference = currentKm - previousKm;\nconst formattedCurrent = formatDate(currentDate);\nconst actions = [];\n\n// CASE 1: Current date inside last row\nif (lastRowIncludesCurrent) {\n  if (currentKm > previousKm) {\n    if (lastDate.includes('-') && lastDiff === 0) {\n      const start = extractStartDate(lastDate);\n      const end = extractEndDate(lastDate);\n      const inputDateStr = formattedCurrent;\n\n      if (inputDateStr === end) {\n        const trimmedEndDate = formatDate(addDays(currentDate, -1));\n        if (start !== trimmedEndDate) {\n          actions.push({\n            type: \"update\",\n            row_number,\n            date: `${start} - ${trimmedEndDate}`,\n            currentKm: previousKm,\n            difference: 0,\n          });\n        } else {\n          actions.push({\n            type: \"update\",\n            row_number,\n            date: start,\n            currentKm: previousKm,\n            difference: 0,\n          });\n        }\n      }\n\n      actions.push({\n        type: \"append\",\n        date: inputDateStr,\n        currentKm,\n        difference: currentKm - previousKm + lastDiff,\n      });\n    } else {\n      actions.push({\n        type: \"update\",\n        row_number,\n        date: lastDate,\n        currentKm,\n        difference: currentKm - previousKm + lastDiff,\n      });\n    }\n  }\n}\n\n// CASE 2: Current date not in last row & difference = 0\nelse if (difference === 0) {\n  const lastDateParsed = parseLastDate(lastDate);\n  const gapDays = lastDateParsed ? Math.floor((currentDate - lastDateParsed) / (1000 * 60 * 60 * 24)) : 0;\n\n  if (gapDays > 1) {\n    const fromDate = formatDate(addDays(lastDateParsed, 1));\n    const toDate = formattedCurrent;\n    actions.push({\n      type: \"append\",\n      date: `${fromDate} - ${toDate}`,\n      currentKm: previousKm,\n      difference: 0,\n    });\n  } else {\n    const start = extractStartDate(lastDate);\n    const updatedDate = lastDiff > 0 ? `${formattedCurrent}` : `${start} - ${formattedCurrent}`;\n    actions.push({\n      type: lastDiff !== 0 ? \"append\" : \"update\",\n      row_number,\n      date: updatedDate,\n      currentKm,\n      difference: 0,\n    });\n  }\n}\n\n// CASE 3: Current date not in last row & difference > 0\nelse if (difference > 0) {\n  const lastDateParsed = parseLastDate(lastDate);\n  if (lastDateParsed) {\n    const gapDays = Math.floor((currentDate - lastDateParsed) / (1000 * 60 * 60 * 24));\n\n    // CASE 3A: Last row was idle → trim last row and append new\n    if (lastDiff === 0) {\n      const updatedDate = `${extractStartDate(lastDate)} - ${formatDate(addDays(currentDate, -1))}`;\n      actions.push({\n        type: \"update\",\n        row_number,\n        date: updatedDate,\n        currentKm: previousKm,\n        difference: 0,\n      });\n\n      actions.push({\n        type: \"append\",\n        date: formattedCurrent,\n        currentKm,\n        difference,\n      });\n    } \n\n    // CASE 3B: Last diff > 0 and gap > 1 → fill idle days + append new\n    else if (lastDiff > 0 && gapDays > 1) {\n      const fromDate = formatDate(addDays(lastDateParsed, 1));\n      const toDate = formatDate(addDays(currentDate, -1));\n      actions.push({\n        type: \"append\",\n        date: fromDate === toDate ? fromDate : `${fromDate} - ${toDate}`,\n        currentKm: previousKm,\n        difference: 0,\n      });\n\n      actions.push({\n        type: \"append\",\n        date: formattedCurrent,\n        currentKm,\n        difference,\n      });\n    } \n\n    // CASE 3C: Normal increment (no gap)\n    else {\n      actions.push({\n        type: \"append\",\n        date: formattedCurrent,\n        currentKm,\n        difference,\n      });\n    }\n  }\n}\n\nreturn { actions };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        96
+      ],
+      "id": "2d68fb35-5f5c-48d4-84be-02228ca6bfe6",
+      "name": "Generate Actions",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "keep": "lastItems"
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        224,
+        0
+      ],
+      "id": "3d9d3549-7236-41dc-818e-94b0449228da",
+      "name": "Limit",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "combineBySql",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        448,
+        96
+      ],
+      "id": "5cccbf22-92a7-4041-8ce9-33e8e0790355",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "actions",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        896,
+        96
+      ],
+      "id": "cfa201c5-17b3-4944-8de4-42bea7ce8291",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_GID",
+          "mode": "list",
+          "cachedResultName": "driven",
+          "cachedResultUrl": "YOUR_SHEET_URL"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.actions.row_number }}",
+            "Date": "={{ $json.actions.date }}",
+            "km driven so far": "={{ $json.actions.currentKm }}",
+            "km difference": "={{ $json.actions.difference }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "km driven so far",
+              "displayName": "km driven so far",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "km difference",
+              "displayName": "km difference",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1344,
+        192
+      ],
+      "id": "b0bc1009-bfdf-4f22-b841-3047e6694a42",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0d30bbf8-09ff-49a2-af76-4d64f07c40b5",
+              "leftValue": "={{ $json.actions.type }}",
+              "rightValue": "append",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        96
+      ],
+      "id": "39df2d19-8444-4587-a970-40fae1f4a7ec",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_GID",
+          "mode": "list",
+          "cachedResultName": "driven",
+          "cachedResultUrl": "YOUR_SHEET_URL"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $json.actions.date }}",
+            "km driven so far": "={{ $json.actions.currentKm }}",
+            "km difference": "={{ $json.actions.difference }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "km driven so far",
+              "displayName": "km driven so far",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "km difference",
+              "displayName": "km difference",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "585015c2-da90-4b3f-b0b9-24d324c14d90",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Parse Chat Input",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Chat Input": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Generate Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Actions": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1b605f30-d734-404a-8eb1-17bc8b9e6db2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_INSTANCE_ID"
+  },
+  "id": "YOUR_WORKFLOW_ID",
+  "tags": []
+}
