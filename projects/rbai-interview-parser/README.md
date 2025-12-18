@@ -1,3 +1,5 @@
+![workflow image](image.png)
+
 # 🏍️ RBAI Dataset Collection System
 
 > **Decoding the Psychology of Two-Wheeler Riders**  
