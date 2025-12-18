@@ -1,70 +1,63 @@
-# N8N Projects
+# N8N Workflow Collection
 
-Self-hosted n8n automation platform with production infrastructure and personal workflow collections.
+This repository contains a self-hosted n8n automation platform with production infrastructure and a collection of workflow automations for research and data processing tasks.
 
-## 📁 Repository Structure
+## About n8n
+
+n8n is an open-source workflow automation tool that allows you to connect various applications and services through a visual interface. It enables the creation of complex data processing pipelines, API integrations, and automated workflows without extensive programming knowledge.
+
+This repository demonstrates production-grade deployment and implementation of n8n workflows for real-world use cases.
+
+## Repository Structure
 
 ```
 n8n-projects/
-├── infra/                    # Production infrastructure (Docker Compose stack)
-│   ├── docker-compose.yml    # n8n + Postgres + Caddy services
-│   ├── Caddyfile             # Reverse proxy & TLS config
-│   ├── backup.sh             # Backup script for DB and volumes
-│   ├── sample.env            # Environment template
-│   └── README.md             # 📖 Infrastructure setup guide
+├── infra/                          Production infrastructure
+│   ├── docker-compose.yml          n8n + PostgreSQL + Caddy
+│   ├── Caddyfile                   Reverse proxy configuration
+│   ├── backup.sh                   Automated backup script
+│   ├── sample.env                  Environment template
+│   └── README.md                   Deployment documentation
 │
-├── projects/                 # N8N workflow collections
-│   └── [workflow-name]/
-│       ├── workflow.json     # Exportable n8n workflow
-│       └── README.md         # Workflow-specific documentation
+├── projects/                       Workflow collection
+│   ├── rbai-interview-parser/      Interview data extraction workflow
+│   ├── mileage-tracker/            Odometer tracking workflow
+│   └── [future-workflows]/         Additional workflows
 │
-└── SECURITY.md               # Security guidelines & checklist
+└── private/                        Development notes (not tracked)
 ```
 
-## 🚀 Getting Started
+## Infrastructure
 
-### 1. Deploy Infrastructure
-See **[infra/README.md](infra/README.md)** for complete deployment instructions including:
-- Prerequisites (Docker, DNS setup)
-- Configuration (`.env` setup)
-- Deployment steps
-- Backup procedures
-- Troubleshooting
+The `infra/` directory contains production-ready Docker Compose configuration for deploying n8n with:
 
-### 2. Import Workflows
-Once n8n is running:
-1. Browse workflows in `projects/`
-2. Read workflow-specific README for requirements
-3. Import JSON via n8n UI
-4. Configure credentials and update placeholders
+- **PostgreSQL 15** for persistent data storage
+- **Caddy 2** as reverse proxy with automatic HTTPS/TLS
+- **Automated backups** for data preservation
+- **Environment-based configuration** for secure credential management
 
-## 📋 Available Workflows
+Refer to [infra/README.md](infra/README.md) for complete deployment instructions.
 
-### Interview Parser
-**Path**: `projects/rbai-interview-parser/`  
-**Purpose**: Extract structured data from interview transcripts using LLM  
-**Requirements**: Google Sheets OAuth, LLM API (Groq/OpenAI)
+## Workflows
 
-## 🔒 Security Reminders
+The `projects/` directory contains individual n8n workflow implementations. Each workflow is organized in its own subdirectory with:
 
-**Before deploying:**
-- ✅ Change all default passwords in `.env`
-- ✅ Generate strong `N8N_ENCRYPTION_KEY`
-- ✅ Configure valid domain and SSL
-- ✅ Review [SECURITY.md](SECURITY.md) checklist
+- **workflow.json** - Importable n8n workflow file
+- **README.md** - Workflow documentation, setup instructions, and technical details
+- **Additional files** - Configuration guides or supporting documentation
 
-See **[SECURITY.md](SECURITY.md)** for complete security policy.
+Each workflow is documented independently. Refer to individual project directories for specific implementation details.
 
-## 📚 Documentation
+## Getting Started
 
-- **[infra/README.md](infra/README.md)** - Infrastructure deployment & maintenance
-- **[SECURITY.md](SECURITY.md)** - Security best practices
-- **Individual workflow READMEs** - Setup instructions per workflow
-- **[n8n Docs](https://docs.n8n.io/)** - Official n8n documentation
+1. **Deploy Infrastructure**: Follow the deployment guide in [infra/README.md](infra/README.md)
+2. **Import Workflows**: Access your n8n instance and import workflow JSON files from `projects/`
+3. **Configure Credentials**: Set up required API keys and OAuth credentials as specified in each workflow's documentation
 
-## 💡 Quick Reference
+## Purpose
 
-- **N8N Community**: https://community.n8n.io/
-- **Troubleshooting**: See [infra/README.md](infra/README.md) troubleshooting section
+This is a personal research workspace demonstrating the application of workflow automation for data collection, processing, and analysis tasks. The repository serves as a reference implementation for production-grade n8n deployments and workflow design patterns.
 
 ---
+
+**Note:** Sensitive information (API keys, credentials, personal data) has been sanitized from this repository. Placeholder values must be replaced with actual credentials during deployment.

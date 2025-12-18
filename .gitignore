@@ -39,5 +39,6 @@ npm-debug.log*
 *.env.production
 
 # Test data
+/private
 test_data/
 mock_data/
